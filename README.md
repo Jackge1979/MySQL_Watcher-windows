@@ -8,4 +8,4 @@ Windows 7/10
 # 运行界面
 ![](Config.png)
 
-![](MySQL Watcher-windows.png)
+![](MySQL_Watcher-windows.png)
