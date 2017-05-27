@@ -3,6 +3,7 @@
 * Email:jack_r_ge@126.com
 
 本软件是基于原生MySQL开发的数据库巡检小工具，免费使用，本项目计划在完善后进行开源。
+![](banner.jpg)
 
 ## 运行环境
 * Windows 7/10
@@ -18,4 +19,3 @@
 ![](MySQL_Watcher-windows.png)
 * 点击“配置”菜单中的“自定义参数配置”，可以修改生成报告的项目。
 ![](Config.png)
-
