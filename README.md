@@ -1,4 +1,4 @@
-# MySQL巡检助手（MySQL Watcher）
+# MySQL巡检助手（MySQL Watcher for windows）
 * Author:Jack R. Ge
 * Email:jack_r_ge@126.com
 
