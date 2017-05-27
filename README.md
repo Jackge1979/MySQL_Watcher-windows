@@ -1,12 +1,13 @@
 # MySQL巡检助手（MySQL Watcher）
 * Author:Jack R. Ge
-
 * Email:jack_r_ge@126.com
 
 本软件是基于原生MySQL开发的数据库巡检小工具，免费使用，本项目计划在完善后进行开源。
+程序开发参考了：https://github.com/kinghows/MySQL_Watcher ，在此向MySQL_Watcher作者致谢。
 
 ## 运行环境
 * Windows 7/10
+* MySQL5.6&5.7
 
 ## 安装
 下载“QL_Helper_v1.0.1.3.zip”后解压，运行解压后的“MySQL巡检助手v1.0.1.3.msi”安装包，按提示完成。
