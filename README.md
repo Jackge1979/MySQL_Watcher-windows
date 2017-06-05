@@ -2,7 +2,7 @@
 * Author:Jack R. Ge
 * Email:jack_r_ge@126.com
 
-本软件是基于原生MySQL开发的数据库巡检小工具，免费使用，本项目计划在完善后进行开源。
+本软件是基于原生MySQL开发的数据库巡检开源小工具。
 ![](banner.jpg)
 
 ## 运行环境
