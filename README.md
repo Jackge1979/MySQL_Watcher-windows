@@ -19,3 +19,5 @@
 ![](MySQL_Watcher-windows.png)
 * 点击“配置”菜单中的“自定义参数配置”，可以修改生成报告的项目。
 ![](Config.png)
+
+*本项目参考：https://github.com/kinghows/MySQL_Watcher*
