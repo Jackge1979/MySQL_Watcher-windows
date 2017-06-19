@@ -1696,6 +1696,269 @@ namespace MySQLWatcher
             return "";
         }
 
+        public string getBinlogs(string reportType)
+        {
+            string html = "";
+            string query = "show master logs";
+            DataTable loglist = SQLHelper.ExcuteQuery(query);
+            if (loglist != null && loglist.Rows.Count > 0)
+            {
+                for (int i = 0; i < loglist.Rows.Count; i++)
+                {
+                    string log_name = loglist.Rows[i]["Log_name"].ToString();
+                    html+=getBinlog(log_name, reportType);
+                    List<string> list = getBinlog(log_name);
+                    foreach(string s in list)
+                    {
+                        html += s;
+                    }
+                }
+            }
+            return html;
+        }
+
+        private string getBinlog(string logname,string reportType)
+        {
+            
+            string title = "Binlog "+ logname;
+            string query = "show binlog events in '"+logname+"'";
+            string[] style = { "Log_name,l", "Pos,r", "Event_type,r", "Server_id,l", "End_log_pos,r", "Info,l" };
+            return f_print_query_table(title, query, style, reportType);
+        }
+
+        private List<string> getBinlog(string logname)
+        {
+            string query = "show binlog events in '" + logname + "'";
+            List<string> list = new List<string>();
+            DataTable dt = SQLHelper.ExcuteQuery(query);
+            for (int i = 0; i < dt.Rows.Count; i++)
+            {
+                int pos = int.Parse(dt.Rows[i]["Pos"].ToString());
+                int end_log_pos = int.Parse(dt.Rows[i]["End_log_pos"].ToString());
+                string event_type = dt.Rows[i]["Event_type"].ToString();
+                if (event_type == "Format_desc")
+                {
+
+                }
+
+                if (event_type == "Table_map")
+                {
+                    
+                }
+
+                if (event_type == "Write_rows")
+                {
+                    //ReadFileByByte(logname, pos, end_log_pos - pos);
+                }
+                string result = ReadFileByByte(logname, pos, end_log_pos);
+                list.Add(result);
+            }
+            return list;
+        }
+
+
+        /// <summary>
+        /// 用二进制方式读取文件
+        /// </summary>
+        /// <param name="fileName">文件名</param>
+        /// <returns>读取到的数据</returns>
+        public string ReadFileByByte(String fileName,int offset,int end_log_pos)
+        {
+            string result = "";
+            FileStream fs = new FileStream(@"C:\Program Files\mysql-5.7.12\data\" + fileName, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+            byte[] data = new byte[fs.Length];
+
+            try
+            {
+                int read = fs.Read(data, 0, data.Length);
+
+                //| timestamp（0:4）| type_code（4:1）| server_id（5:4）| event_length（9:4）| next_position(13:4) | flags（17:2）| extra_header（19：x - 19）|
+
+                byte[] file_header = new byte[4];//fe 62 69 6e
+                Array.Copy(data, file_header, 4);
+
+                byte[] _timestamp = new byte[4];
+                Array.Copy(data, 0+ offset, _timestamp,0,4);
+                byte _type = data[4+ offset];//事件类型
+                byte[] _server_id = new byte[4];
+                Array.Copy(data, 5+ offset, _server_id, 0, 4);
+                byte[] _total_size = new byte[4];
+                Array.Copy(data, 9 + offset, _total_size, 0, 4);
+                byte[] _end_log_pos = new byte[4];
+                Array.Copy(data, 13 + offset, _end_log_pos, 0, 4);
+                byte[] _flag = new byte[2];
+                Array.Copy(data, 17 + offset, _flag, 0, 2);
+                byte extra_header = data[19 + offset];//未使用
+                
+
+                if (_type == (int)Log_event_type.START_EVENT_V3)
+                {
+                    //1、前19个字节为事件头部（参考文件格式部分）
+                    //2、第19 - 20字节为版本信息
+                    //3、第21 - 70字节为服务器版本信息
+                    //4、第71 - 74字节为创建时间
+                }
+                if (_type == (int)Log_event_type.QUERY_EVENT)
+                {
+                    //前边30个字节为辅助字段，其余为事件内容
+                    //1、前19个字节为事件头部（参考文件格式部分）
+                    //2、第19 - 22个字节为代理线程ID
+                    //3、第23 - 26字节为事件执行时间
+                    //4、第27个字节保存数据库名称的长度
+                    //5、第28 - 29字节为错误码
+                    //6、第30个字节开始为数据库名，具体长度由第27个字节决定
+                    //7、剩余部分：第一个字节为’\0’，剩余部分为具体的查询语句
+                    
+                    //• 4 bytes.The ID of the thread that issued this statement.Needed for temporary tables. This is also useful for a DBA for knowing who did what on the master.
+                    //• 4 bytes.The time in seconds that the statement took to execute.Only useful for inspection by the DBA.
+                    //• 1 byte.The length of the name of the database which was the default database when the statement was executed.This name appears later, in the variable data part.It is necessary for statements such as INSERT INTO t VALUES(1) that don't specify the database and rely on the default database previously selected by USE. 
+                    //• 2 bytes.The error code resulting from execution of the statement on the master.Error codes are defined in include / mysqld_error.h. 0 means no error.How come statements with a nonzero error code can exist in the binary log ? This is mainly due to the use of nontransactional tables within transactions.For example, if an INSERT...SELECT fails after inserting 1000 rows into a MyISAM table(for example, with a duplicate - key violation), we have to write this statement to the binary log, because it truly modified the MyISAM table.For transactional tables, there should be no event with a nonzero error code(though it can happen, for example if the connection was interrupted (Control-C)). The slave checks the error code: After executing the statement itself, it compares the error code it got with the error code in the event, and if they are different it stops replicating (unless --slave-skip-errors was used to ignore the error). 
+                    //• 2 bytes (not present in v1, v3). The length of the status variable block. 
+
+
+                    byte[] agent_thread = new byte[4];
+                    Array.Copy(data, 19 + offset, agent_thread, 0, 4);
+                    byte[] event_time = new byte[4];
+                    Array.Copy(data, 23 + offset, event_time, 0, 4);
+                    byte dbname_length = data[27+offset];
+                    byte[] error_code = new byte[2];
+                    Array.Copy(data, 28 + offset, error_code, 0, 2);
+                    byte[] status = new byte[2];
+                    Array.Copy(data, 30 + offset, status, 0, 2);
+
+                    char[] dbname = new char[dbname_length];
+                    Array.Copy(data, 60+ offset, dbname, 0, dbname_length);
+                    char[] dbname2 = new char[dbname_length];
+                    Array.Copy(data, 60 + offset+ dbname_length+1, dbname2, 0, dbname_length);
+
+                    string msql = "";
+                    int sql_offset = 58;
+                    if (new string(dbname) == new string(dbname2))
+                    {
+                        sql_offset = 60 + dbname_length + 1;
+                    }
+                    char[] sql = new char[end_log_pos - offset];
+                    Array.Copy(data, offset, sql, 0, end_log_pos - offset);
+                    for (int i = 0; i < sql.Length; i++)
+                    {
+                        if (sql[i] != '\0')
+                        {
+                            msql += sql[i];
+                        }
+                    }
+
+                    result += "use '"+ new string(dbname)+"';<br/>";
+                    result += msql + ";<br/>";
+                    Console.WriteLine(msql);
+                }
+                if (_type == (int)Log_event_type.ROTATE_EVENT)
+                {
+                    //当切换到一个新的日志文件时记录（使用顺序文件序号时该事件被废除）：
+                    //1、前19个字节为事件头部（参考文件格式部分）
+                    //2、20 - 27为位置信息（int64）
+                    //3、剩余部分为新日志文件的标识(文件名)
+                }
+                if (_type == (int)Log_event_type.INTVAR_EVENT)
+                {
+                    //该事件用于记录特殊变量值，如自动增量值（auto_increment）和LAST_INSERT_ID
+                    //1、前19个字节为事件头部（参考文件格式部分）
+                    //2、第20个字节是类型字段
+                    //3、第21 - 28个字节是值
+                }
+
+                if (_type == (int)Log_event_type.TABLE_MAP_EVENT)
+                {
+                    //Fixed data part:
+                    //• 6 bytes.The table ID.
+                    //• 2 bytes.Reserved for future use. 
+                    //Variable data part: 
+                    //• 1 byte.The length of the database name.
+                    //• Variable - sized.The database name(null - terminated).
+                    //• 1 byte.The length of the table name.
+                    //• Variable - sized.The table name(null - terminated).
+                    //• Packed integer.The number of columns in the table.
+                    //• Variable - sized.An array of column types, one byte per column.To find the meanings of these values, look at enum_field_types in the mysql_com.h header file.
+                    //• Packed integer.The length of the metadata block.
+                    //• Variable - sized.The metadata block; see log_event.h for contents and format.
+                    //• Variable - sized.Bit - field indicating whether each column can be NULL, one bit per column.For this field, the amount of storage required for N columns is INT((N + 7) / 8) bytes.
+                    byte[] table_id = new byte[6];
+                    Array.Copy(data, 19 + offset, table_id, 0, 6);
+                    byte[] reserved = new byte[2];
+                    Array.Copy(data, 25 + offset, reserved, 0, 2);
+                    byte dbname_length = data[27 + offset];
+                    char[] dbname = new char[dbname_length];
+                    Array.Copy(data, 28 + offset, dbname, 0, dbname_length);
+                    byte tablename_length = data[28 + offset+ dbname_length+1];
+                    char[] tablename = new char[tablename_length];
+                    Array.Copy(data, 28 + offset + dbname_length + 2, tablename, 0, tablename_length);
+                    byte columns_number = data[28 + offset + dbname_length + 2+ tablename_length];
+                    byte columns_type = data[28 + offset + dbname_length + 2 + tablename_length + 1];
+                    byte metadata_length = data[28 + offset + dbname_length + 2 + tablename_length + 2];
+                }
+
+                if (_type == (int)Log_event_type.WRITE_ROWS_EVENT)
+                {
+                    byte[] table_id = new byte[6];
+                    Array.Copy(data, 19 + offset, table_id, 0, 6);
+                    byte[] reserved = new byte[2];
+                    Array.Copy(data, 25 + offset, reserved, 0, 2);
+                    byte columns_number = data[27 + offset];
+                    byte[] col_bitmap = new byte[((columns_number + 7) / 8)];
+                    Array.Copy(data, 28 + offset , col_bitmap, 0, (columns_number + 7) / 8);
+
+                    byte[] record = new byte[(columns_number + 7) / 8];
+                    Array.Copy(data, 28 + offset+ (columns_number + 7) / 8, record, 0, (columns_number + 7) / 8);
+                }
+
+                if (_type == (int)Log_event_type.FORMAT_DESCRIPTION_EVENT)
+                {
+                    char[] _table_id = new char[6];
+                    Array.Copy(data, 20 + offset, _table_id, 0, 6);
+
+                    byte[] extra = new byte[2];//未使用
+                    Array.Copy(data, 26 + offset, extra, 0, 2);
+                    byte schema_length = data[26 + offset + 2];
+
+                    char[] schema_name = new char[schema_length];//未使用
+                    Array.Copy(data, 29 + offset, schema_name, 0, schema_length);
+
+                    string table_id = "";
+                    for (int i = 0; i < _table_id.Length; i++)
+                    {
+                        if (_table_id[i] != '\0')
+                        {
+                            table_id += _table_id[i];
+                        }
+                    }
+                }
+                
+                
+                //Console.WriteLine(table_id);
+            }
+            catch (Exception e)
+            {
+                data = null;
+                //errorMsg = e.Message;
+            }
+            fs.Dispose();
+            return result;
+        }
+
+        public int ToInt32(byte[] v)
+        {
+            var r = 0;
+            var len = v.Length;
+            if (len > 4)
+            {
+                len = 4;
+            }
+            for (var i = 0; i < len; i++)
+            {
+                r |= v[i] << 8 * (len - i - 1);
+            }
+            return r;
+        }
+
         private string f_print_query_table( string title,string query, string[] style, string reportType)
         {
             List<string[]> list = new List<string[]>();
@@ -1711,12 +1974,27 @@ namespace MySQLWatcher
             }
             return printTable(list, title, style, reportType);
         }
-    
+
+        private string f_print_binglog(string title, string query, string[] style, string reportType)
+        {
+            List<string[]> list = new List<string[]>();
+            DataTable dt = SQLHelper.ExcuteQuery(query);
+            for (int m = 0; m < dt.Rows.Count; m++)
+            {
+                string[] row = new string[style.Length];
+                for (int i = 0; i < style.Length; i++)
+                {
+                    row[i] = dt.Rows[m][i].ToString();
+                }
+                list.Add(row);
+            }
+            return printTable(list, title, style, reportType);
+        }
 
         public string printBottom()
         {
             string html = "";
-            html += "<p /><p /><p align=center><a href=\"mailto: name @email.com\">jack_r_ge@126.com</a></p>";
+            html += "<p /><p /><p align=center><a href=\"mailto:jack_r_ge@126.com\">jack_r_ge@126.com</a></p>";
             html += "<p /><p /><p /></body></html>";
             return html;
         }
