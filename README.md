@@ -1,5 +1,5 @@
 # MySQL巡检助手（MySQL Watcher for windows）
-* Author:Jack R. Ge
+* Author:Jack Ge
 * Email:jack_r_ge@126.com
 
 本软件是基于原生MySQL开发的数据库巡检开源小工具。
